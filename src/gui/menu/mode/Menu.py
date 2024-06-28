@@ -2,7 +2,9 @@ from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QActionGroup
 from PySide6.QtCore import Signal
 
-from .TeachersModeAction import SwitchModeAction
+from .SwitchModeAction import SwitchModeAction
+
+import logging
 
 
 class Menu(QMenu):
