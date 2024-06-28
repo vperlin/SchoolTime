@@ -7,3 +7,4 @@ class StudentsModeAction(QAction):
         super().__init__(parent)
         
         self.setText( self.tr('Students') )
+        self.setCheckable(True)
