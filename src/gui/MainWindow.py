@@ -3,6 +3,7 @@ from PySide6.QtCore import Slot
 
 from . import menu
 from . import Teachers
+from . import Students
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -33,7 +34,10 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def students_mode_on(self):
-        LOG.debug('teachers_mode_on')
+        self.__current_mode = cur = Students.Frame(parent=self)
+        self.setCentralWidget(cur)
+        self.__main_menu.add_menus(cur.menus)
+        LOG.debug('Students mode enabled')
 
     @Slot()
     def mode_off(self):
