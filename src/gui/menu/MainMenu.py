@@ -21,6 +21,8 @@ class MainMenu(QMenuBar):
         mnu.quit.connect( self.quit )
         self.addMenu(mnu)
 
+        self.__zone0 = self.addSeparator()
+
         self.__mode_menu = mnu = mode.Menu(parent=self)
         mnu.teachers_mode_on.connect(self.teachers_mode_on)
         mnu.teachers_mode_off.connect(self.teachers_mode_off)
@@ -30,3 +32,7 @@ class MainMenu(QMenuBar):
 
         self.__help_menu = mnu = help.Menu(parent=self)
         self.addMenu(mnu)
+
+    def add_menus(self, menus):
+        for m in menus:
+            self.insertMenu(self.__zone0, m)

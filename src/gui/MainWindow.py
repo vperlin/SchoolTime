@@ -2,6 +2,7 @@ from PySide6.QtWidgets import QMainWindow
 from PySide6.QtCore import Slot
 
 from . import menu
+from . import Teachers
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -21,9 +22,14 @@ class MainWindow(QMainWindow):
         mm.quit.connect(self.close)
         self.setMenuBar(mm)
 
+        self.__current_mode = None
+
     @Slot()
     def teachers_mode_on(self):
-        LOG.debug('teachers_mode_on')
+        self.__current_mode = cur = Teachers.Frame(parent=self)
+        self.setCentralWidget(cur)
+        self.__main_menu.add_menus(cur.menus)
+        LOG.debug('Teacher mode enabled')
 
     @Slot()
     def students_mode_on(self):
@@ -31,4 +37,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def mode_off(self):
-        LOG.debug('mode_off')
+        if self.__current_mode:
+            self.__current_mode.deleteLater()
+            self.__current_mode = None
+        LOG.debug('Current mode disabled')
