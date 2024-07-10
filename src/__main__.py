@@ -9,7 +9,7 @@ def main():
     main_window.show()
 
     return application.exec()
-    
+
 
 if __name__ == '__main__':
     result = main()
