@@ -8,18 +8,31 @@ class Model(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.__content = []
+
     def rowCount(self, idx_parent=QModelIndex()):
-        # @TODO С потолка
-        return 0 if idx_parent.isValid() else 10
+        return 0 if idx_parent.isValid() else len(self.__content)
 
     def columnCount(self, idx_parent=QModelIndex()):
         return 0 if idx_parent.isValid() else 4
 
     def data(self, idx, role=Qt.DisplayRole):
-        if role == Qt.DisplayRole:
-            return '???'
-        else:
-            return None
+        match role:
+            case Qt.DisplayRole:
+                dt = self.__content[idx.row()]
+                match idx.column():
+                    case 0:
+                        return dt.iid
+                    case 1:
+                        return dt.code
+                    case 2:
+                        return dt.title
+                    case 3:
+                        return dt.note
+                    case _:
+                        return None
+            case _:
+                return None
 
     @Slot()
     def reload(self):
@@ -28,8 +41,11 @@ class Model(QAbstractTableModel):
                 select iid, code, title, note
                     from subjects ;
             ''')
-            for dt in cursor:
-                print(dt, type(dt))
+            self.beginResetModel()
+            try:
+                self.__content = list(cursor)
+            finally:
+                self.endResetModel()
 
 
 class View(QTableView):
