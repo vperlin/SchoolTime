@@ -25,11 +25,17 @@ class MainWindow(QMainWindow):
 
         self.__current_mode = None
 
+    def arrange_docks(self, docks):
+        for dock, area in docks:
+            self.addDockWidget(area, dock)
+            self.__main_menu.add_dock(dock.toggleViewAction())
+
     @Slot()
     def teachers_mode_on(self):
         self.__current_mode = cur = Teachers.Frame(parent=self)
         self.setCentralWidget(cur)
         self.__main_menu.add_menus(cur.menus)
+        self.arrange_docks(cur.docks)
         LOG.debug('Teacher mode enabled')
 
     @Slot()

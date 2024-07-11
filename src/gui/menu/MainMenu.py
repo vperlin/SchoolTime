@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 from . import mfile
 from . import mode
 from . import help
+from .ToolsMenu import ToolsMenu
 
 
 class MainMenu(QMenuBar):
@@ -23,6 +24,9 @@ class MainMenu(QMenuBar):
 
         self.__zone0 = self.addSeparator()
 
+        self.__dock_tools = mnu = ToolsMenu(parent=self)
+        self.addMenu(mnu)
+
         self.__mode_menu = mnu = mode.Menu(parent=self)
         mnu.teachers_mode_on.connect(self.teachers_mode_on)
         mnu.teachers_mode_off.connect(self.teachers_mode_off)
@@ -36,3 +40,9 @@ class MainMenu(QMenuBar):
     def add_menus(self, menus):
         for m in menus:
             self.insertMenu(self.__zone0, m)
+
+    def add_dock(self, dock_action):
+        self.__dock_tools.add_dock(dock_action)
+
+    def add_tool(self, tool_action):
+        self.__dock_tools.add_tool(tool_action)
