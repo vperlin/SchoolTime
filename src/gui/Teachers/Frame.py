@@ -17,9 +17,13 @@ class Frame(QFrame):
         tbl = QTableView(parent=self)
         lay.addWidget(tbl)
 
-        self.__subjects_dock = dock = QDockWidget(self.tr('Subjects'), parent=self)
+        dock = QDockWidget(self.tr('Subjects'), parent=self)
+        self.__subjects_dock = dock
         self.__subjects_frame = frm = Subjects.Frame(parent=dock)
         dock.setWidget(frm)
+
+    def __del__(self):
+        self.__subjects_dock.deleteLater()
 
     @property
     def menus(self):
