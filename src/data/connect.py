@@ -15,7 +15,7 @@ def rollback():
 def connect(cls=None, *, as_tuples=False):
     if as_tuples:
         rf = psycopg.rows.tuple_row
-    elif not cls:
+    elif cls:
         rf = psycopg.rows.class_row(cls)
     else:
         rf = psycopg.rows.dict_row
