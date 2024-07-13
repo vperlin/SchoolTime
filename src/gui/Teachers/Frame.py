@@ -31,30 +31,52 @@ class Model(QAbstractItemModel):
                     LOG.warning(f'Invalid row number = {row}')
                     return QModelIndex()
         else:
-            LOG.debug('Unknown index()')
-            return QModelIndex()
+            match idx_parent.internalId():
+                case data.Kind.SUBJECT.value:
+                    return self.createIndex(row, column,
+                                            data.Kind.SUBJECT.value | 1)
+                case data.Kind.TEACHER.value:
+                    return self.createIndex(row, column,
+                                            data.Kind.TEACHER.value | 1)
+                case _:
+                    LOG.warning('Unknown index()')
+                    return QModelIndex()
 
     def parent(self, idx):
         if idx.internalId() in {data.Kind.SUBJECT.value,
                                 data.Kind.TEACHER.value}:
             return QModelIndex()
         else:
-            LOG.debug('Unknown parent')
-            return QModelIndex()
+            match idx.internalId() & data.Kind.KIND.value:
+                case data.Kind.SUBJECT.value:
+                    return self.createIndex(0, 0, data.Kind.SUBJECT.value)
+                case data.Kind.TEACHER.value:
+                    return self.createIndex(1, 0, data.Kind.TEACHER.value)
+                case _:
+                    LOG.warning('Unknown parent')
+                    return QModelIndex()
 
     def rowCount(self, idx_parent=QModelIndex()):
         if not idx_parent.isValid():
             return 2
-        LOG.debug('Unknown rowCount()')
-        return 0
-        # return 0 if idx_parent.isValid() else len(self.__content)
+        match idx_parent.internalId():
+            case data.Kind.SUBJECT.value:
+                return len(self.__subjects)
+            case data.Kind.TEACHER.value:
+                return len(self.__teachers)
+            case _:
+                return 0
 
     def columnCount(self, idx_parent=QModelIndex()):
         if not idx_parent.isValid():
             return 1
-        LOG.debug('Unknown columnCount()')
-        return 0
-        # return 0 if idx_parent.isValid() else 8
+        match idx_parent.internalId():
+            case data.Kind.SUBJECT.value:
+                return 4
+            case data.Kind.TEACHER.value:
+                return 8
+            case _:
+                return 0
 
     def data(self, idx, role=Qt.DisplayRole):
         match role:
@@ -65,44 +87,69 @@ class Model(QAbstractItemModel):
                     case data.Kind.TEACHER.value:
                         return self.tr('Teachers')
                     case _:
-                        LOG.warning(f'Invalid kind ID: {idx.internalId(): x}')
-                        return '???'
-                # dt = self.__content[idx.row()]
-                # match idx.column():
-                #     case 0:
-                #         return dt.iid
-                #     case 1:
-                #         return dt.last_name
-                #     case 2:
-                #         return dt.first_name
-                #     case 3:
-                #         return dt.middle_name
-                #     case 4:
-                #         return dt.phone
-                #     case 5:
-                #         return 'subjects'
-                #     case 6:
-                #         return 'класс'
-                #     case 7:
-                #         return dt.note
-                #     case _:
-                #         return None
+                        match idx.internalId() & data.Kind.KIND.value:
+                            case data.Kind.TEACHER.value:
+                                dt = self.__teachers[idx.row()]
+                                match idx.column():
+                                    case 0:
+                                        return dt.iid
+                                    case 1:
+                                        return dt.last_name
+                                    case 2:
+                                        return dt.first_name
+                                    case 3:
+                                        return dt.middle_name
+                                    case 4:
+                                        return dt.phone
+                                    case 5:
+                                        return 'subjects'
+                                    case 6:
+                                        return 'класс'
+                                    case 7:
+                                        return dt.note
+                                    case _:
+                                        return None
+                            case data.Kind.SUBJECT.value:
+                                dt = self.__subjects[idx.row()]
+                                match idx.column():
+                                    case 0:
+                                        return dt.iid
+                                    case 1:
+                                        return dt.code
+                                    case 2:
+                                        return dt.title
+                                    case 3:
+                                        return dt.note
+                                    case _:
+                                        return None
+                            case _:
+                                return None
             case _:
                 return None
 
     @Slot()
     def reload(self):
-        LOG.debug('Reloading model')
-        # with data.connect(data.Teacher) as cursor:
-        #     cursor.execute('''
-        #         select iid, last_name, first_name, middle_name, phone, note
-        #             from teachers ;
-        #     ''')
-        #     self.beginResetModel()
-        #     try:
-        #         self.__content = list(cursor)
-        #     finally:
-        #         self.endResetModel()
+        self.beginResetModel()
+        try:
+
+            with data.connect() as cursor:
+
+                cursor.execute('''
+                    select iid, code, title, note
+                        from subjects ;
+                ''')
+                self.__subjects = [ data.Subject(**x) for x in cursor ]
+
+                cursor.execute('''
+                    select iid, last_name, first_name, middle_name, phone, note
+                        from teachers ;
+                ''')
+                self.__teachers = [ data.Teacher(**x) for x in cursor ]
+
+            # @TODO Возможны дополнительные операции
+
+        finally:
+            self.endResetModel()
 
 
 class View(QTreeView):
