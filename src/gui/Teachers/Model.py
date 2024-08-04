@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt, QAbstractItemModel, QModelIndex, Slot
+import csv
 
 import data
 
@@ -21,6 +22,13 @@ class Model(QAbstractItemModel):
                 return sbj
         else:
             raise KeyError(f'Subject: {iid}')
+
+    def subject_by_code(self, code):
+        for sbj in self.__subjects:
+            if sbj.code == code:
+                return sbj
+        else:
+            raise KeyError(f'Subject: {code}')
 
     @property
     def idx_teachers(self):
@@ -164,3 +172,18 @@ class Model(QAbstractItemModel):
 
         finally:
             self.endResetModel()
+            
+    def load_teachers_csv(self, path):
+        with path.open('rt', encoding='utf-8') as src:
+            rdr = csv.reader(src)
+            for line in rdr:
+                fio, phone, email, subjects = line
+                last_name, first_name, middle_name = fio.split() 
+                if subjects:
+                    subj = subjects.split(',')
+                else:
+                    subj = []
+                print( last_name, first_name, middle_name, phone, email, subj )
+
+    def load_teachers_xlsx(self, path):
+        pass

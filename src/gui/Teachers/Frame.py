@@ -23,7 +23,9 @@ class Frame(QFrame):
         self.__menu = menu.Menu(parent=self)
         self.__layout = lay = QVBoxLayout(self)
 
-        tbl = TeachersView(parent=self)
+        self.__load_teachers_action = self.__menu.addAction(self.tr('Load teachers...'))
+
+        self.__teachers_view = tbl = TeachersView(parent=self)
         tbl.setModel(self.__model)
         lay.addWidget(tbl)
 
@@ -32,6 +34,9 @@ class Frame(QFrame):
         self.__subjects_view = wid = SubjectsView(parent=dock)
         wid.setModel(self.__model)
         dock.setWidget(wid)
+
+        self.__load_teachers_action.triggered.connect(self.__teachers_view.load_teachers)
+        
 
     def __del__(self):
         self.__subjects_dock.deleteLater()
