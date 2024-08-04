@@ -15,6 +15,13 @@ class Model(QAbstractItemModel):
         self.__subjects = []
         self.__teachers = []
 
+    def subject_by_id(self, iid):
+        for sbj in self.__subjects:
+            if sbj.iid == iid:
+                return sbj
+        else:
+            raise KeyError(f'Subject: {iid}')
+
     @property
     def idx_teachers(self):
         return self.index(1, 0, QModelIndex())
@@ -107,7 +114,8 @@ class Model(QAbstractItemModel):
                                     case 4:
                                         return dt.phone
                                     case 5:
-                                        return 'subjects'
+                                        r = [ self.subject_by_id(iid).code for iid in dt.subjects ]
+                                        return ', '.join(r)
                                     case 6:
                                         return 'класс'
                                     case 7:
@@ -146,8 +154,9 @@ class Model(QAbstractItemModel):
                 self.__subjects = [ data.Subject(**x) for x in cursor ]
 
                 cursor.execute('''
-                    select iid, last_name, first_name, middle_name, phone, note
-                        from teachers ;
+                    select iid, last_name, first_name, middle_name, 
+                           phone, note, subjects, lead_group
+                        from teachers_info ;
                 ''')
                 self.__teachers = [ data.Teacher(**x) for x in cursor ]
 

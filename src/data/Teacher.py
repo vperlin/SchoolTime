@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -10,3 +10,5 @@ class Teacher(object):
     middle_name: str = None
     phone: str = None
     note: str = None
+    subjects: list[int] = field(default_factory=list)
+    lead_group: int = None
