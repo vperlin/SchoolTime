@@ -16,6 +16,11 @@ class TeachersView(QTableView):
     def setModel(self, model):
         super().setModel(model)
         self.setRootIndex(model.idx_teachers)
+        model.modelReset.connect(self.on_model_reset)
+
+    def on_model_reset(self):
+        self.setRootIndex(self.model().idx_teachers)
+        
 
     @Slot()
     def load_teachers(self):

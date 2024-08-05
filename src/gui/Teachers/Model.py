@@ -1,4 +1,5 @@
 from PySide6.QtCore import Qt, QAbstractItemModel, QModelIndex, Slot
+from PySide6.QtGui import QColor
 import csv
 
 import data
@@ -6,6 +7,16 @@ import data
 import logging
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
+
+
+def resetting_model(function):
+    def function_resetting_model(self, *args, **kwargs):
+        self.beginResetModel()
+        try:
+            return function(self, *args, **kwargs)
+        finally:
+            self.endResetModel()
+    return function_resetting_model
 
 
 class Model(QAbstractItemModel):
@@ -94,57 +105,57 @@ class Model(QAbstractItemModel):
             case data.Kind.SUBJECT.value:
                 return 4
             case data.Kind.TEACHER.value:
-                return 8
+                return 9
             case _:
                 return 0
+
+    def background_data(self, idx):
+        match idx.internalId():
+            case data.Kind.SUBJECT.value:
+                return None
+            case data.Kind.TEACHER.value:
+                return None
+            case _:
+                match idx.internalId() & data.Kind.KIND.value:
+                    case data.Kind.TEACHER.value:
+                        dt = self.__teachers[idx.row()]
+                        if dt.iid is None:
+                            return QColor('lightgreen')
+                        else:
+                            return None
+                    case data.Kind.SUBJECT.value:
+                        dt = self.__subjects[idx.row()]
+                        if dt.iid is None:
+                            return QColor('lightgreen')
+                        else:
+                            return None
+                    case _:
+                        return None
+        
+    def display_data(self, idx):
+        match idx.internalId():
+            case data.Kind.SUBJECT.value:
+                return self.tr('Subjects')
+            case data.Kind.TEACHER.value:
+                return self.tr('Teachers')
+            case _:
+                match idx.internalId() & data.Kind.KIND.value:
+                    case data.Kind.TEACHER.value:
+                        dt = self.__teachers[idx.row()]
+                        return dt[idx.column()]
+                    case data.Kind.SUBJECT.value:
+                        dt = self.__subjects[idx.row()]
+                        return dt[idx.column()]
+                    case _:
+                        return None
+        
 
     def data(self, idx, role=Qt.DisplayRole):
         match role:
             case Qt.DisplayRole:
-                match idx.internalId():
-                    case data.Kind.SUBJECT.value:
-                        return self.tr('Subjects')
-                    case data.Kind.TEACHER.value:
-                        return self.tr('Teachers')
-                    case _:
-                        match idx.internalId() & data.Kind.KIND.value:
-                            case data.Kind.TEACHER.value:
-                                dt = self.__teachers[idx.row()]
-                                match idx.column():
-                                    case 0:
-                                        return dt.iid
-                                    case 1:
-                                        return dt.last_name
-                                    case 2:
-                                        return dt.first_name
-                                    case 3:
-                                        return dt.middle_name
-                                    case 4:
-                                        return dt.phone
-                                    case 5:
-                                        r = [ self.subject_by_id(iid).code for iid in dt.subjects ]
-                                        return ', '.join(r)
-                                    case 6:
-                                        return 'класс'
-                                    case 7:
-                                        return dt.note
-                                    case _:
-                                        return None
-                            case data.Kind.SUBJECT.value:
-                                dt = self.__subjects[idx.row()]
-                                match idx.column():
-                                    case 0:
-                                        return dt.iid
-                                    case 1:
-                                        return dt.code
-                                    case 2:
-                                        return dt.title
-                                    case 3:
-                                        return dt.note
-                                    case _:
-                                        return None
-                            case _:
-                                return None
+                return self.display_data(idx)
+            case Qt.BackgroundRole:
+                return self.background_data(idx)
             case _:
                 return None
 
@@ -163,27 +174,68 @@ class Model(QAbstractItemModel):
 
                 cursor.execute('''
                     select iid, last_name, first_name, middle_name, 
-                           phone, note, subjects, lead_group
-                        from teachers_info ;
+                           phone, email, note, subjects, lead_group
+                        from teachers_info1 ;
                 ''')
-                self.__teachers = [ data.Teacher(**x) for x in cursor ]
+                tt = []
+                for x in cursor:
+                    sbj = []
+                    for sid in x['subjects']:
+                        sbj.append( self.subject_by_id(sid))
+                    x['subjects'] = sbj
+                    tt.append(data.Teacher(**x))
+                self.__teachers = tt
 
             # @TODO Возможны дополнительные операции
 
         finally:
             self.endResetModel()
             
+    @Slot()
+    def save(self):
+        self.beginResetModel()
+        try:
+            
+            with data.connect() as cursor:
+                # Сохраняем предметы
+                for subj in self.__subjects:
+                    subj.save(cursor)
+            
+            # Сохраняем учителей
+            
+            pass
+        finally:
+            self.endResetModel()
+
+    @resetting_model            
     def load_teachers_csv(self, path):
-        with path.open('rt', encoding='utf-8') as src:
-            rdr = csv.reader(src)
-            for line in rdr:
-                fio, phone, email, subjects = line
-                last_name, first_name, middle_name = fio.split() 
-                if subjects:
-                    subj = subjects.split(',')
-                else:
-                    subj = []
-                print( last_name, first_name, middle_name, phone, email, subj )
+            with path.open('rt', encoding='utf-8') as src:
+                rdr = csv.reader(src)
+                for line in rdr:
+                    fio, phone, email, subjects = line
+                    if not email:
+                        email = None
+                    if not phone:
+                        phone = None
+                    last_name, first_name, middle_name = fio.split() 
+                    if subjects:
+                        subj = subjects.split(',')
+                        sbj = []
+                        for scode in subj:
+                            try:
+                                s = self.subject_by_code(scode)
+                                sbj.append(s)
+                            except KeyError:
+                                new_subject = data.Subject(code=scode)
+                                self.__subjects.insert(0, new_subject)
+                                sbj.append(new_subject)
+                        subj = sbj
+                    else:
+                        subj = []
+                    t = data.Teacher(last_name=last_name, first_name=first_name,
+                                     middle_name=middle_name, phone=phone,
+                                     email=email, subjects=subj)
+                    self.__teachers.insert(0,t)
 
     def load_teachers_xlsx(self, path):
         pass

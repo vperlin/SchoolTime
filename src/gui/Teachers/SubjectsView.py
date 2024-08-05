@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QTableView
+from PySide6.QtCore import Slot
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -13,3 +14,7 @@ class SubjectsView(QTableView):
     def setModel(self, model):
         super().setModel(model)
         self.setRootIndex(model.idx_subjects)
+        model.modelReset.connect(self.on_model_reset)
+        
+    def on_model_reset(self):
+        self.setRootIndex(self.model().idx_subjects)

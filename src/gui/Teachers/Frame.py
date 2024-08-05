@@ -24,6 +24,7 @@ class Frame(QFrame):
         self.__layout = lay = QVBoxLayout(self)
 
         self.__load_teachers_action = self.__menu.addAction(self.tr('Load teachers...'))
+        self.__save_action = self.__menu.addAction(self.tr('Save data'))
 
         self.__teachers_view = tbl = TeachersView(parent=self)
         tbl.setModel(self.__model)
@@ -36,6 +37,7 @@ class Frame(QFrame):
         dock.setWidget(wid)
 
         self.__load_teachers_action.triggered.connect(self.__teachers_view.load_teachers)
+        self.__save_action.triggered.connect(self.__model.save)
         
 
     def __del__(self):
