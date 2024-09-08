@@ -9,6 +9,8 @@ psycopg = "*"
 yoyo-migrations = "*"
 openpyxl = "*"
 setuptools = "*"
+sphinx = "*"
+sphinx-rtd-theme = "*"
 
 [dev-packages]
 

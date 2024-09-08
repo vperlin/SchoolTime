@@ -20,12 +20,12 @@ class TeachersView(QTableView):
 
     def on_model_reset(self):
         self.setRootIndex(self.model().idx_teachers)
-        
 
     @Slot()
     def load_teachers(self):
-        fl, _ = QFileDialog.getOpenFileName(self, self.tr('Open teacher list'), '.',
-                                                        'CSV files (*.csv);;XLSX Files (*.xlsx);;All Files (*)')
+        title = self.tr('Open teacher list')
+        filters = 'CSV files (*.csv);;XLSX Files (*.xlsx);;All Files (*)'
+        fl, _ = QFileDialog.getOpenFileName(self, title, '.', filters)
         if not fl:
             return
         fl = Path(fl)

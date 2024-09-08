@@ -131,7 +131,7 @@ class Model(QAbstractItemModel):
                             return None
                     case _:
                         return None
-        
+
     def display_data(self, idx):
         match idx.internalId():
             case data.Kind.SUBJECT.value:
@@ -148,7 +148,6 @@ class Model(QAbstractItemModel):
                         return dt[idx.column()]
                     case _:
                         return None
-        
 
     def data(self, idx, role=Qt.DisplayRole):
         match role:
@@ -170,10 +169,10 @@ class Model(QAbstractItemModel):
                     select iid, code, title, note
                         from subjects ;
                 ''')
-                self.__subjects = [ data.Subject(**x) for x in cursor ]
+                self.__subjects = [data.Subject(**x) for x in cursor]
 
                 cursor.execute('''
-                    select iid, last_name, first_name, middle_name, 
+                    select iid, last_name, first_name, middle_name,
                            phone, email, note, subjects, lead_group
                         from teachers_info1 ;
                 ''')
@@ -181,7 +180,7 @@ class Model(QAbstractItemModel):
                 for x in cursor:
                     sbj = []
                     for sid in x['subjects']:
-                        sbj.append( self.subject_by_id(sid))
+                        sbj.append(self.subject_by_id(sid))
                     x['subjects'] = sbj
                     tt.append(data.Teacher(**x))
                 self.__teachers = tt
@@ -190,52 +189,52 @@ class Model(QAbstractItemModel):
 
         finally:
             self.endResetModel()
-            
+
     @Slot()
     def save(self):
         self.beginResetModel()
         try:
-            
+
             with data.connect() as cursor:
                 # Сохраняем предметы
                 for subj in self.__subjects:
                     subj.save(cursor)
-            
+
             # Сохраняем учителей
-            
+
             pass
         finally:
             self.endResetModel()
 
-    @resetting_model            
+    @resetting_model
     def load_teachers_csv(self, path):
-            with path.open('rt', encoding='utf-8') as src:
-                rdr = csv.reader(src)
-                for line in rdr:
-                    fio, phone, email, subjects = line
-                    if not email:
-                        email = None
-                    if not phone:
-                        phone = None
-                    last_name, first_name, middle_name = fio.split() 
-                    if subjects:
-                        subj = subjects.split(',')
-                        sbj = []
-                        for scode in subj:
-                            try:
-                                s = self.subject_by_code(scode)
-                                sbj.append(s)
-                            except KeyError:
-                                new_subject = data.Subject(code=scode)
-                                self.__subjects.insert(0, new_subject)
-                                sbj.append(new_subject)
-                        subj = sbj
-                    else:
-                        subj = []
-                    t = data.Teacher(last_name=last_name, first_name=first_name,
-                                     middle_name=middle_name, phone=phone,
-                                     email=email, subjects=subj)
-                    self.__teachers.insert(0,t)
+        with path.open('rt', encoding='utf-8') as src:
+            rdr = csv.reader(src)
+            for line in rdr:
+                fio, phone, email, subjects = line
+                if not email:
+                    email = None
+                if not phone:
+                    phone = None
+                last_name, first_name, middle_name = fio.split()
+                if subjects:
+                    subj = subjects.split(',')
+                    sbj = []
+                    for scode in subj:
+                        try:
+                            s = self.subject_by_code(scode)
+                            sbj.append(s)
+                        except KeyError:
+                            new_subject = data.Subject(code=scode)
+                            self.__subjects.insert(0, new_subject)
+                            sbj.append(new_subject)
+                    subj = sbj
+                else:
+                    subj = []
+                t = data.Teacher(last_name=last_name, first_name=first_name,
+                                 middle_name=middle_name, phone=phone,
+                                 email=email, subjects=subj)
+                self.__teachers.insert(0, t)
 
     def load_teachers_xlsx(self, path):
         pass

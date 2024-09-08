@@ -15,6 +15,7 @@ class SubjectsView(QTableView):
         super().setModel(model)
         self.setRootIndex(model.idx_subjects)
         model.modelReset.connect(self.on_model_reset)
-        
+
+    @Slot()
     def on_model_reset(self):
         self.setRootIndex(self.model().idx_subjects)
