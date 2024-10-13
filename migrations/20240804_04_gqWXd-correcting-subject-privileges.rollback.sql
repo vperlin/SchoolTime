@@ -8,3 +8,6 @@ revoke insert, update on teachers from public ;
 revoke usage on sequence teachers_iid_seq from public ;
 
 revoke insert, delete on teachers_subjects from public ;
+
+revoke select, insert, update on sclasses from public ;
+revoke usage on sequence sclasses_iid_seq from public ;

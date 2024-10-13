@@ -8,3 +8,6 @@ grant insert, update on teachers to public ;
 grant usage on sequence teachers_iid_seq to public ;
 
 grant insert, delete on teachers_subjects to public ;
+
+grant select, insert, update on sclasses to public ;
+grant usage on sequence sclasses_iid_seq to public ;
