@@ -33,6 +33,6 @@ class TeachersView(QTableView):
             case '.csv':
                 self.model().load_teachers_csv(fl)
             case '.xlsx':
-                self.model().load_tachars.xlsx(fl)
+                self.model().load_teachers_xlsx(fl)
             case _:
                 return

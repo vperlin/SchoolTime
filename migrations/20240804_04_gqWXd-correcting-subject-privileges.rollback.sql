@@ -3,3 +3,8 @@
 
 revoke insert, update on subjects from public ;
 revoke usage on sequence subjects_iid_seq from public ;
+
+revoke insert, update on teachers from public ;
+revoke usage on sequence teachers_iid_seq from public ;
+
+revoke insert, delete on teachers_subjects from public ;

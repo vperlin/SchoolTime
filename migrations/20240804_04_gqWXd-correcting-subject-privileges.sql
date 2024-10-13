@@ -3,3 +3,8 @@
 
 grant insert, update on subjects to public ;
 grant usage on sequence subjects_iid_seq to public ;
+
+grant insert, update on teachers to public ;
+grant usage on sequence teachers_iid_seq to public ;
+
+grant insert, delete on teachers_subjects to public ;

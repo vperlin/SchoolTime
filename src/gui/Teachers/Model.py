@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt, QAbstractItemModel, QModelIndex, Slot
 from PySide6.QtGui import QColor
+import openpyxl
 import csv
 
 import data
@@ -200,7 +201,9 @@ class Model(QAbstractItemModel):
                 for subj in self.__subjects:
                     subj.save(cursor)
 
-            # Сохраняем учителей
+                # Сохраняем учителей
+                for teac in self.__teachers:
+                    teac.save(cursor)
 
             pass
         finally:
@@ -236,5 +239,44 @@ class Model(QAbstractItemModel):
                                  email=email, subjects=subj)
                 self.__teachers.insert(0, t)
 
+    @resetting_model
     def load_teachers_xlsx(self, path):
-        pass
+        wb = openpyxl.load_workbook(path)
+        ws = wb['teachers']
+        for r in range(1, 10000):
+            name = ws.cell(row=r, column=1).value
+            if name is None: continue
+            name = name.strip()
+            if not name: continue
+            last_name, first_name, *middle_name = name.split()
+            if middle_name:
+                middle_name = middle_name[0]
+            else:
+                middle_name = None
+            phone = ws.cell(row=r, column=2).value
+            if phone is not None:
+                phone = phone.strip()
+                if not phone: phone = None 
+            email = ws.cell(row=r, column=3).value
+            if email is not None:
+                email = email.strip()
+                if not email: email = None 
+            subj = ws.cell(row=r, column=4).value
+            if subj is not None:
+                subj = subj.split(',')
+                sbj = []
+                for scode in subj:
+                    try:
+                        s = self.subject_by_code(scode)
+                        sbj.append(s)
+                    except KeyError:
+                        new_subject = data.Subject(code=scode)
+                        self.__subjects.insert(0, new_subject)
+                        sbj.append(new_subject)
+                subj = sbj
+            else:
+                subj = []
+            t = data.Teacher(last_name=last_name, first_name=first_name,
+                             middle_name=middle_name, phone=phone,
+                             email=email, subjects=subj)
+            self.__teachers.insert(0, t)

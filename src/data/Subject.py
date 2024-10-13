@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-INSERT_SQL = '''
+_INSERT_SQL = '''
     insert into subjects( code, title, note )
         values ( %s, %s, %s )
         returning iid ;
 '''
 
-UPDATE_SQL = '''
+_UPDATE_SQL = '''
     update subjects set
           code = %s,
           title = %s,
@@ -52,10 +52,10 @@ class Subject(object):
 
     def save(self, cursor):
         if self.is_new:
-            cursor.execute(INSERT_SQL, self.insert_data )
+            cursor.execute(_INSERT_SQL, self.insert_data )
             self.iid = cursor.fetchone()['iid']
         elif self.is_changed:
-            cursor.execute(UPDATE_SQL, self.update_data)
+            cursor.execute(_UPDATE_SQL, self.update_data)
             
             
             
