@@ -11,3 +11,6 @@ revoke insert, delete on teachers_subjects from public ;
 
 revoke select, insert, update on sclasses from public ;
 revoke usage on sequence sclasses_iid_seq from public ;
+
+revoke select, insert, update on students from public ;
+revoke usage on sequence students_iid_seq from public ;

@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QTableView
+from PySide6.QtWidgets import QFrame, QVBoxLayout
 
 from . import menu
 from . import SClasses
+from .SClassFrame import SClassFrame
 
 
 class Frame(QFrame):
@@ -16,8 +17,8 @@ class Frame(QFrame):
         lay.addWidget(wid)
 
         # Временно
-        tbl = QTableView(parent=self)
-        lay.addWidget(tbl)
+        self.__sclass_frame = frm = SClassFrame(parent=self)
+        lay.addWidget(frm)
 
     @property
     def menus(self):

@@ -4,20 +4,12 @@ import openpyxl
 import csv
 
 import data
+from helpers import resetting_model
+
 
 import logging
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.DEBUG)
-
-
-def resetting_model(function):
-    def function_resetting_model(self, *args, **kwargs):
-        self.beginResetModel()
-        try:
-            return function(self, *args, **kwargs)
-        finally:
-            self.endResetModel()
-    return function_resetting_model
 
 
 class Model(QAbstractItemModel):
