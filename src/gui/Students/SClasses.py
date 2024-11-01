@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QComboBox
-from PySide6.QtCore import QAbstractListModel, Qt, QModelIndex
+from PySide6.QtCore import QAbstractListModel, Qt, QModelIndex, Signal, Slot
 
 import data
 from helpers import resetting_model
@@ -39,6 +39,8 @@ class Model(QAbstractListModel):
 
 
 class View(QComboBox):
+
+    iid_sclass_selected = Signal(int)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -47,4 +49,12 @@ class View(QComboBox):
         self.__model.reload()
         
         self.setModel(self.__model)
+        
+        self.currentIndexChanged.connect(self.on_current_index_changed)
+        
+    @Slot(int)
+    def on_current_index_changed(self, idx):
+        iid_sclass = self.itemData(idx)
+        self.iid_sclass_selected.emit(iid_sclass)
+        
         

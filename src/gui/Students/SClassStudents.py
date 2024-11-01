@@ -53,7 +53,6 @@ class Model(QAbstractTableModel):
     @helpers.resetting_model
     def reload(self):
         with data.connect() as cursor:
-            print(self.__iid_sclass)
             cursor.execute(STUDENTS_SELECT_SQL, (self.__iid_sclass,))
             self.__students = [data.Student(**x) for x in cursor]
         
@@ -65,6 +64,11 @@ class View(QTableView):
         
         self.__model = mdl = Model(parent=self)
         self.setModel(mdl)
-        mdl.setSClassId(1)
+        
+    @Slot(int)
+    def setSClassId(self, iid):
+        self.__model.setSClassId(iid)
+        
+        
         
         

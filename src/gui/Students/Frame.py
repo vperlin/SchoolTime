@@ -19,6 +19,9 @@ class Frame(QFrame):
         # Временно
         self.__sclass_frame = frm = SClassFrame(parent=self)
         lay.addWidget(frm)
+        
+        self.__sclasses.iid_sclass_selected.connect(self.__sclass_frame.setSClassId)
+        self.__sclass_frame.setSClassId(self.__sclasses.currentData())
 
     @property
     def menus(self):
