@@ -5,20 +5,20 @@ from . import SClassStudents
 
 
 class SClassFrame(QFrame):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         lay = QVBoxLayout(self)
-        
+
         radiolay = QHBoxLayout()
         lay.addLayout(radiolay)
-        
+
         self.__no_subgroup = btn = QRadioButton(parent=self)
         btn.setText(self.tr('no subgroups'))
         btn.setChecked(True)
         radiolay.addWidget(btn)
-        
+
         self.__subgroups = []
         # Заглушки
         btn = QRadioButton(parent=self)
@@ -30,11 +30,11 @@ class SClassFrame(QFrame):
         self.__subgroups.append(btn)
         radiolay.addWidget(btn)
         # конец заглушек
-        
+
         # Заглушка
         self.__students = vie = SClassStudents.View(parent=self)
         lay.addWidget(vie)
-        
+
     @Slot(int)
     def setSClassId(self, iid_sclass):
         self.__students.setSClassId(iid_sclass)
