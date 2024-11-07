@@ -16,7 +16,6 @@ class Frame(QFrame):
         self.__sclasses = wid = SClasses.View(parent=self)
         lay.addWidget(wid)
 
-        # Временно
         self.__sclass_frame = frm = SClassFrame(parent=self)
         lay.addWidget(frm)
         

@@ -20,6 +20,7 @@ class SClassFrame(QFrame):
         
     @Slot(int)
     def setSClassId(self, iid_sclass):
+        self.__subgroups.setSClassId(iid_sclass)
         self.__students.setSClassId(iid_sclass)
-
+        
         
