@@ -69,6 +69,7 @@ class View(QTableView):
     def setSClassId(self, iid):
         self.__model.setSClassId(iid)
         
-        
-        
+    @Slot(list, list)
+    def on_subgroups_selected(self, sg_iids, sbj_iids):
+        print(sg_iids, sbj_iids)        
         

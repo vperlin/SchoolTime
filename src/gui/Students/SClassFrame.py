@@ -17,6 +17,8 @@ class SClassFrame(QFrame):
         
         self.__students = vie = SClassStudents.View(parent=self)
         lay.addWidget(vie)
+
+        sub.subgroups_selected.connect(vie.on_subgroups_selected)
         
     @Slot(int)
     def setSClassId(self, iid_sclass):
