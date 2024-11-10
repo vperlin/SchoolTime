@@ -42,6 +42,7 @@ class SubgroupsFrame(QFrame):
     @Slot(int)
     def setSClassId(self, iid_sclass):
         self.__iid_sclass = iid_sclass
+        self.__no_subgroups.setChecked(True)
         self.reload()
         
     def reload(self):
