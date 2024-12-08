@@ -13,12 +13,12 @@ SELECT_ALL_SQL = '''
 
 
 class Model(QAbstractListModel):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.__sclasses = []
-        
+
     @resetting_model
     def reload(self):
         with data.connect() as cursor:

@@ -21,6 +21,22 @@ SUBGROUPS_SELECT_SQL = '''
         where iid in ( {} ) ;
 '''
 
+STUDENT_SUBGROUPS_SELECT_SQL = '''
+select  sg.iid_subgroup,
+        st.iid as iid,
+        st.last_name as last_name,
+        st.first_name as first_name,
+        st.middle_name as middle_name, 
+        st.phone as phone,
+        st.phone_parents as phone_parents,
+        st.note as note
+    from  subgroups_students as sg
+    inner join students as st
+        on sg.iid_student = st.iid
+    where sg.iid_subgroup in ( {} )
+    order by last_name, first_name, middle_name ;
+'''
+
 
 class Model(QAbstractTableModel):
     
@@ -45,14 +61,19 @@ class Model(QAbstractTableModel):
         self.__iids_subgroup = []
         self.__iids_subject = []
         self.reload()
-                
+
     def rowCount(self, idx_parent):
-        return len(self.__students)
-    
+        if self.__iids_subgroup:
+            R = sum( len(sg['students']) for sg in self.__subgroups )
+            R += len(self.__subgroups)
+            return R
+        else:
+            return len(self.__students)
+
     def columnCount(self, idx_parent):
         return 4
-    
-    def data(self, idx, role):
+
+    def data_nogroups(self, idx, role):
         if role == Qt.DisplayRole:
             st = self.__students[idx.row()]
             match idx.column():
@@ -69,6 +90,46 @@ class Model(QAbstractTableModel):
         else:
             return None
 
+    def data_groups(self, idx, role):
+        row = idx.row()
+        sgrp = iter(self.__subgroups)
+        obj = next(sgrp)
+        stud = iter(obj['students'])
+        while row > 0:
+            try:
+                obj = next(stud)
+            except StopIteration:
+                obj = next(sgrp)
+                stud = iter(obj['students'])
+            row -= 1
+        if role == Qt.DisplayRole:
+            if isinstance(obj, data.Student):
+                match idx.column():
+                    case 0:
+                        return obj.full_name
+                    case 1:
+                        return obj.phone
+                    case 2:
+                        return obj.phone_parents
+                    case 3:
+                        return obj.note
+                    case _:
+                        return None
+            else:
+                match idx.column():
+                    case 0:
+                        return obj['title']
+                    case _:
+                        return None
+        else:
+            return None
+
+    def data(self, idx, role):
+        if self.__iids_subgroup:
+            return self.data_groups(idx, role)
+        else:
+            return self.data_nogroups(idx, role)
+
     @helpers.resetting_model
     def reload_nogroups(self):
         self.__subgroups = []
@@ -78,6 +139,7 @@ class Model(QAbstractTableModel):
 
     @helpers.resetting_model
     def reload_groups(self):
+        self.__students = []
         with data.connect() as cursor:
             iid_txt = ','.join(map(str,self.__iids_subgroup))
             if not re.match(r'[,\d]+', iid_txt):
@@ -85,7 +147,16 @@ class Model(QAbstractTableModel):
             SQL = SUBGROUPS_SELECT_SQL.format(iid_txt)
             cursor.execute(SQL)
             self.__subgroups = list(cursor)
-            print(self.__subgroups)
+            sgrp = {}
+            for sg in self.__subgroups:
+                sgrp[sg['iid']] = sg
+                sg['students'] = []
+            SQL = STUDENT_SUBGROUPS_SELECT_SQL.format(iid_txt)
+            cursor.execute(SQL)
+            for student in cursor:
+                iid_subgroup = student.pop('iid_subgroup')
+                student = data.Student(**student)
+                sgrp[iid_subgroup]['students'].append(student)
 
     def reload(self):
         if self.__iids_subgroup:
@@ -93,9 +164,9 @@ class Model(QAbstractTableModel):
         else:
             self.reload_nogroups()
 
-        
+
 class View(QTableView):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         
