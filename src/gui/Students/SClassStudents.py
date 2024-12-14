@@ -1,10 +1,16 @@
-from PySide6.QtWidgets import QTableView
-from PySide6.QtCore import QAbstractTableModel, Qt, Slot
+from PySide6.QtWidgets import QTableView, QHeaderView, QSizePolicy
+from PySide6.QtGui import QColor
+from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
 import re
 
 import data
 import helpers
 
+bgColors = [
+    [ QColor('#E8D5B8'), QColor('#F4EADC') ],
+    [ QColor('#E7DCCB'), QColor('#F3EDE5') ],
+    [ QColor('#EAE4D9'), QColor('#F4F1EB') ],
+]
 
 STUDENTS_SELECT_SQL = '''
     select iid, last_name, first_name, middle_name, 
@@ -56,16 +62,16 @@ select
 
 
 class Model(QAbstractTableModel):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.__iid_sclass = None
         self.__iids_subgroup = []
         self.__iids_subject = []
         self.__students = []
         self.__subgroups = []
-        
+
     @Slot(list, list)
     def select_subgroups(self, sg_iids, sbj_iids):
         self.__iids_subgroup = list(sg_iids)
@@ -79,7 +85,7 @@ class Model(QAbstractTableModel):
         self.__iids_subject = []
         self.reload()
 
-    def rowCount(self, idx_parent):
+    def rowCount(self, idx_parent=QModelIndex()):
         if self.__iids_subgroup:
             R = sum( len(sg['students']) for sg in self.__subgroups )
             R += len(self.__subgroups)
@@ -89,6 +95,28 @@ class Model(QAbstractTableModel):
 
     def columnCount(self, idx_parent):
         return 4
+
+    def find_obj(self, number):
+        row = number
+        sgrp = iter(self.__subgroups)
+        try:
+            obj = next(sgrp)
+        except StopIteration:
+            return None, -1, -1
+        stud = iter(obj['students'])
+        student_no = -1
+        group_no = 0
+        while row > 0:
+            try:
+                obj = next(stud)
+                student_no += 1
+            except StopIteration:
+                obj = next(sgrp)
+                stud = iter(obj['students'])
+                group_no += 1
+                student_no = -1
+            row -= 1
+        return obj, group_no, student_no
 
     def data_nogroups(self, idx, role):
         if role == Qt.DisplayRole:
@@ -108,44 +136,67 @@ class Model(QAbstractTableModel):
             return None
 
     def data_groups(self, idx, role):
-        row = idx.row()
-        sgrp = iter(self.__subgroups)
-        obj = next(sgrp)
-        stud = iter(obj['students'])
-        while row > 0:
-            try:
-                obj = next(stud)
-            except StopIteration:
-                obj = next(sgrp)
-                stud = iter(obj['students'])
-            row -= 1
-        if role == Qt.DisplayRole:
-            if isinstance(obj, data.Student):
-                match idx.column():
-                    case 0:
-                        return obj.full_name
-                    case 1:
-                        return obj.phone
-                    case 2:
-                        return obj.phone_parents
-                    case 3:
-                        return obj.note
-                    case _:
-                        return None
-            else:
-                match idx.column():
-                    case 0:
-                        return obj['title']
-                    case _:
-                        return None
-        else:
-            return None
+        obj, group_no, student_no = self.find_obj(idx.row())
+        match role:
+            case Qt.DisplayRole:
+                if isinstance(obj, data.Student):
+                    match idx.column():
+                        case 0:
+                            return obj.full_name
+                        case 1:
+                            return obj.phone
+                        case 2:
+                            return obj.phone_parents
+                        case 3:
+                            return obj.note
+                        case _:
+                            return None
+                else:
+                    match idx.column():
+                        case 0:
+                            return obj['title']
+                        case _:
+                            return None
+            case Qt.BackgroundRole:
+                no = group_no % len(bgColors)
+                if student_no < 0:
+                    return bgColors[no][1]
+                else:
+                    return None
+            case _:
+                return None
 
     def data(self, idx, role):
         if self.__iids_subgroup:
             return self.data_groups(idx, role)
         else:
             return self.data_nogroups(idx, role)
+
+    def horizontal_headerData(self, section, role):
+        if role != Qt.DisplayRole:
+            return super().headerData(section, Qt.Horizontal, role)
+        match section:
+            case 0: return self.tr('FIO')
+            case 1: return self.tr('Phone')
+            case 2: return self.tr('Phone of parents')
+            case 3: return self.tr('Note')
+            case _: return None
+
+    def vertical_headerData(self, section, role):
+        if role != Qt.DisplayRole:
+            return super().headerData(section, Qt.Horizontal, role)
+        if not self.__iids_subgroup:
+            return super().headerData(section, Qt.Horizontal, role)
+        _, _, no = self.find_obj(section)
+        return None if no < 0 else no + 1
+
+    def headerData(self, section, orientation, role):
+        match orientation:
+            case Qt.Horizontal:
+                return self.horizontal_headerData(section, role)
+            case Qt.Vertical:
+                return self.vertical_headerData(section, role)
+        return super().headerData(section, orientation, role)
 
     @helpers.resetting_model
     def reload_nogroups(self):
@@ -193,15 +244,30 @@ class View(QTableView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.__model = mdl = Model(parent=self)
         self.setModel(mdl)
-        
+        self.setup()
+
+    def setup(self):
+        self.setWordWrap(False)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
+        self.clearSpans()
+        for r in range(0, self.__model.rowCount()):
+            _, group_no, student_no = self.__model.find_obj(r)
+            if group_no >= 0 and student_no < 0:
+                self.setSpan(r, 0, 1, 4)
+        self.setSelectionBehavior(QTableView.SelectRows)
+        self.setSelectionMode(QTableView.SingleSelection)
+
     @Slot(int)
     def setSClassId(self, iid):
         self.__model.setSClassId(iid)
-        
+        self.setup()
+
     @Slot(list, list)
     def on_subgroups_selected(self, sg_iids, sbj_iids):
-        self.__model.select_subgroups(sg_iids, sbj_iids)        
-        
+        self.__model.select_subgroups(sg_iids, sbj_iids)
+        self.setup()
