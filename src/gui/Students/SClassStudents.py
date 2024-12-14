@@ -1,7 +1,9 @@
-from PySide6.QtWidgets import QTableView, QHeaderView, QSizePolicy
-from PySide6.QtGui import QColor
-from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
+from PySide6.QtWidgets import QTableView, QHeaderView, QSizePolicy, QApplication
+from PySide6.QtGui import QColor, QDrag
+from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex, QMimeData
 import re
+import json
+import io
 
 import data
 import helpers
@@ -118,53 +120,65 @@ class Model(QAbstractTableModel):
             row -= 1
         return obj, group_no, student_no
 
+    def data_nogroups_display(self, idx):
+        st = self.__students[idx.row()]
+        match idx.column():
+            case 0: return st.full_name
+            case 1: return st.phone
+            case 2: return st.phone_parents
+            case 3: return st.note
+            case _: return None
+
+    def data_nogroups_groupid(self, idx):
+        return None
+
+    def data_nogroups_studentid(self, idx):
+        st = self.__students[idx.row()]
+        return st.iid
+
     def data_nogroups(self, idx, role):
-        if role == Qt.DisplayRole:
-            st = self.__students[idx.row()]
-            match idx.column():
-                case 0:
-                    return st.full_name
-                case 1:
-                    return st.phone
-                case 2:
-                    return st.phone_parents
-                case 3:
-                    return st.note
-                case _:
-                    return None
+        if role == Qt.DisplayRole: return self.data_nogroups_display(idx)
+        elif role == Qt.UserRole + 1: return self.data_nogroups_studentid(idx)
+        elif role == Qt.UserRole + 2: return self.data_nogroups_groupid(idx)
+        return None
+
+    def data_groups_display(self, idx):
+        obj, group_no, student_no = self.find_obj(idx.row())
+        if student_no < 0:
+            if idx.column() == 0:
+                return obj['title']
         else:
+            match idx.column():
+                case 0: return obj.full_name
+                case 1: return obj.phone
+                case 2: return obj.phone_parents
+                case 3: return obj.note
+        return None
+
+    def data_groups_background(self, idx):
+        _, group_no, student_no = self.find_obj(idx.row())
+        no = group_no % len(bgColors)
+        if student_no < 0:
+            return bgColors[no][1]
+        return None
+
+    def data_groups_groupid(self, idx):
+        _, group_no, student_no = self.find_obj(idx.row())
+        return self.__subgroups[group_no]['iid']
+
+    def data_groups_studentid(self, idx):
+        _, group_no, student_no = self.find_obj(idx.row())
+        if student_no < 0:
             return None
+        return self.__subgroups[group_no]['students'][student_no].iid
 
     def data_groups(self, idx, role):
         obj, group_no, student_no = self.find_obj(idx.row())
-        match role:
-            case Qt.DisplayRole:
-                if isinstance(obj, data.Student):
-                    match idx.column():
-                        case 0:
-                            return obj.full_name
-                        case 1:
-                            return obj.phone
-                        case 2:
-                            return obj.phone_parents
-                        case 3:
-                            return obj.note
-                        case _:
-                            return None
-                else:
-                    match idx.column():
-                        case 0:
-                            return obj['title']
-                        case _:
-                            return None
-            case Qt.BackgroundRole:
-                no = group_no % len(bgColors)
-                if student_no < 0:
-                    return bgColors[no][1]
-                else:
-                    return None
-            case _:
-                return None
+        if role == Qt.DisplayRole: return self.data_groups_display(idx)
+        elif role == Qt.BackgroundRole: return self.data_groups_background(idx)
+        elif role == Qt.UserRole + 1: return self.data_groups_groupid(idx)
+        elif role == Qt.UserRole + 2: return self.data_groups_studentid(idx)
+        return None
 
     def data(self, idx, role):
         if self.__iids_subgroup:
@@ -250,6 +264,7 @@ class View(QTableView):
         self.setup()
 
     def setup(self):
+        self.__dragStartPos = None
         self.setWordWrap(False)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
@@ -261,6 +276,10 @@ class View(QTableView):
                 self.setSpan(r, 0, 1, 4)
         self.setSelectionBehavior(QTableView.SelectRows)
         self.setSelectionMode(QTableView.SingleSelection)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QTableView.InternalMove)
 
     @Slot(int)
     def setSClassId(self, iid):
@@ -271,3 +290,58 @@ class View(QTableView):
     def on_subgroups_selected(self, sg_iids, sbj_iids):
         self.__model.select_subgroups(sg_iids, sbj_iids)
         self.setup()
+
+    def mousePressEvent(self, event):
+        if event.buttons() & Qt.LeftButton:
+            self.__dragStartPos = None
+            idx = self.indexAt(event.pos())
+            if idx.isValid():
+                obj, group_no, student_no = self.__model.find_obj(idx.row())
+                if group_no >= 0 and student_no >= 0:
+                    self.__dragStartPos = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.__dragStartPos is None:
+            return super().mouseMoveEvent(event)
+        if not (event.buttons() & Qt.LeftButton):
+            return super().mouseMoveEvent(event)
+        dist = (event.pos() - self.__dragStartPos).manhattanLength()
+        if dist < QApplication.startDragDistance(): return
+
+        idx = self.indexAt(self.__dragStartPos)
+        group_id = idx.data(Qt.UserRole + 1)
+        student_id = idx.data(Qt.UserRole + 2)
+        data = {
+            'iid_group': idx.data(Qt.UserRole + 1),
+            'iid_student': idx.data(Qt.UserRole + 2),
+        }
+        data = json.dumps(data).encode('utf-8')
+
+        mimedata = QMimeData()
+        mimedata.setData('application/json', data)
+
+        drag = QDrag(self)
+        drag.setMimeData(mimedata)
+        drop_action = drag.exec(Qt.MoveAction)
+        super().mouseMoveEvent(event)
+
+    def dragEnterEvent(self, event):
+        if not event.mimeData().hasFormat('application/json'):
+            return
+        idx = self.indexAt(event.pos())
+        if not idx.isValid():
+            return
+        if idx.data(Qt.UserRole + 2) is not None:
+            return
+        data = event.mimeData().data('application/json')
+        data = json.loads(bytes(data).decode('utf-8'))
+        if idx.data(Qt.UserRole + 1) == data['iid_group']:
+            return
+        event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        print(self.dragDropMode())
+
+    def dropEvent(self, event):
+        print('Drop')
