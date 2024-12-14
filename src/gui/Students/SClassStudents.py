@@ -22,18 +22,35 @@ SUBGROUPS_SELECT_SQL = '''
 '''
 
 STUDENT_SUBGROUPS_SELECT_SQL = '''
-select  sg.iid_subgroup,
-        st.iid as iid,
-        st.last_name as last_name,
-        st.first_name as first_name,
-        st.middle_name as middle_name, 
-        st.phone as phone,
-        st.phone_parents as phone_parents,
-        st.note as note
-    from  subgroups_students as sg
+select
+    st.iid as iid,
+    sg.iid_subgroup as iid_subgroup,
+    last_name, first_name, middle_name,
+           phone, phone_parents, st.note,
+           st.iid_sclass
+    from subgroups_students as sg
     inner join students as st
         on sg.iid_student = st.iid
-    where sg.iid_subgroup in ( {} )
+    where iid_subgroup in ( {} )
+    order by last_name, first_name, middle_name ;
+'''
+
+STUDENT_OTHER_SELECT_SQL = '''
+with sg_std as (
+select
+    st.iid as iid
+    from subgroups_students as sg
+    right outer join students as st
+        on sg.iid_student = st.iid
+    where iid_subgroup in ( {} )
+) select
+    st.iid as iid,
+    last_name, first_name, middle_name,
+           phone, phone_parents, st.note,
+           st.iid_sclass
+    from students as st
+    where st.iid_sclass = %s
+        and st.iid not in ( select iid from sg_std )
     order by last_name, first_name, middle_name ;
 '''
 
@@ -147,6 +164,10 @@ class Model(QAbstractTableModel):
             SQL = SUBGROUPS_SELECT_SQL.format(iid_txt)
             cursor.execute(SQL)
             self.__subgroups = list(cursor)
+            self.__subgroups.append({
+                'iid':-1,
+                'title': self.tr('<not specified>'),
+                'note': None})
             sgrp = {}
             for sg in self.__subgroups:
                 sgrp[sg['iid']] = sg
@@ -157,6 +178,9 @@ class Model(QAbstractTableModel):
                 iid_subgroup = student.pop('iid_subgroup')
                 student = data.Student(**student)
                 sgrp[iid_subgroup]['students'].append(student)
+            SQL = STUDENT_OTHER_SELECT_SQL.format(iid_txt)
+            cursor.execute(SQL, (self.__iid_sclass,))
+            sgrp[-1]['students'] = [data.Student(**x) for x in cursor]
 
     def reload(self):
         if self.__iids_subgroup:
