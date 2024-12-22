@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QTableView
-from PySide6.QtCore import QAbstractTableModel, Qt, Slot
+from PySide6.QtWidgets import QTableView, QHeaderView
+from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
 import re
 
 import data
@@ -81,7 +81,7 @@ class Model(QAbstractTableModel):
         self.__iids_subject = []
         self.reload()
 
-    def rowCount(self, idx_parent):
+    def rowCount(self, idx_parent=QModelIndex()):
         if self.__iids_subgroup:
             R = sum( len(sg['students']) for sg in self.__subgroups )
             R += len(self.__subgroups)
@@ -89,7 +89,7 @@ class Model(QAbstractTableModel):
         else:
             return len(self.__students)
 
-    def columnCount(self, idx_parent):
+    def columnCount(self, idx_parent=QModelIndex()):
         return 4
 
     def data_nogroups(self, idx, role):
@@ -109,18 +109,41 @@ class Model(QAbstractTableModel):
         else:
             return None
 
-    def data_groups(self, idx, role):
-        row = idx.row()
+    def find_obj_subgroup(self, number):
+        row = number
         sgrp = iter(self.__subgroups)
         obj = next(sgrp)
+        subgroup_no = 0
         stud = iter(obj['students'])
+        student_no = -1
         while row > 0:
             try:
                 obj = next(stud)
+                student_no += 1
             except StopIteration:
-                obj = next(sgrp)
-                stud = iter(obj['students'])
+                try:
+                    obj = next(sgrp)
+                    stud = iter(obj['students'])
+                    subgroup_no += 1
+                    student_no = -1
+                except StopIteration:
+                    return None, -1, -1
             row -= 1
+        return obj, subgroup_no, student_no
+
+    def find_obj_nosubgroup(self, number):
+        if number > len(self.__students):
+            return None, -1, -1
+        return self.__students[number], -1, number
+
+    def find_obj(self, number):
+        if self.__subgroups:
+            return self.find_obj_subgroup(number)
+        else:
+            return self.find_obj_nosubgroup(number)
+
+    def data_groups(self, idx, role):
+        obj, subgroup_no, student_no = self.find_obj(idx.row())
         if role == Qt.DisplayRole:
             if isinstance(obj, data.Student):
                 match idx.column():
@@ -197,15 +220,30 @@ class View(QTableView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.__model = mdl = Model(parent=self)
         self.setModel(mdl)
-        
+        self.__model.modelReset.connect(self.setup)
+
+    @Slot()
+    def setup(self):
+        self.setWordWrap(False)
+        if hdr := self.horizontalHeader():
+            hdr.setSectionResizeMode(QHeaderView.ResizeToContents)
+            hdr.setSectionResizeMode(0, QHeaderView.Stretch)
+        if hdr := self.verticalHeader():
+            hdr.setSectionResizeMode(QHeaderView.Fixed)
+
+        self.clearSpans()
+        for r in range(0, self.__model.rowCount()):
+            obj, subgroup_no, student_no = self.__model.find_obj(r)
+            if subgroup_no >= 0 and student_no < 0:
+                self.setSpan(r, 0, 1, 4)
+
     @Slot(int)
     def setSClassId(self, iid):
         self.__model.setSClassId(iid)
-        
+
     @Slot(list, list)
     def on_subgroups_selected(self, sg_iids, sbj_iids):
         self.__model.select_subgroups(sg_iids, sbj_iids)        
-        
