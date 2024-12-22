@@ -1,12 +1,17 @@
 from PySide6.QtWidgets import QTableView, QHeaderView, QSizePolicy, QApplication
 from PySide6.QtGui import QColor, QDrag
-from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex, QMimeData
+from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
+from PySide6.QtCore import QMimeData, QByteArray
 import re
 import json
 import io
 
 import data
 import helpers
+
+import logging
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.DEBUG)
 
 bgColors = [
     [ QColor('#E8D5B8'), QColor('#F4EADC') ],
@@ -212,6 +217,77 @@ class Model(QAbstractTableModel):
                 return self.vertical_headerData(section, role)
         return super().headerData(section, orientation, role)
 
+    def flags(self, idx):
+        result = super().flags(idx)
+        _, group_no, student_no = self.find_obj(idx.row())
+        if student_no < 0:
+            result |= Qt.ItemIsDropEnabled
+        else:
+            result |= Qt.ItemIsDragEnabled
+        return result
+
+    def supportedDropActions(self):
+        return Qt.MoveAction
+
+    def mimeTypes(self):
+        return [ 'application/json' ]
+
+    def mimeData(self, indexes):
+
+        for idx in indexes:
+            group_id = idx.data(Qt.UserRole + 1)
+            student_id = idx.data(Qt.UserRole + 2)
+            data = {
+                'iid_group': group_id,
+                'iid_student': student_id,
+            }
+            data = json.dumps(data).encode('utf-8')
+
+        mimedata = QMimeData()
+        mimedata.setData('application/json', data)
+        return mimedata
+
+    def canDropMimeData(self, dt, action, row, column, parent) -> bool:
+        if not parent.isValid():
+            return False
+        if not dt.hasFormat('application/json'):
+            return False
+        obj, group_no, student_no = self.find_obj(parent.row())
+        if student_no >= 0:
+            return False
+        dt = bytes(dt.data('application/json')).decode('utf-8')
+        dt = json.loads(dt)
+        result = dt['iid_group'] != obj["iid"]
+        return result
+
+    def dropMimeData(self, dt, action, row, column, parent):
+
+        if not self.canDropMimeData(dt, action, row, column, parent):
+            return False
+
+        if action == Qt.IgnoreAction:
+            return True
+
+        new_subgroup_iid = parent.data(Qt.UserRole + 1)
+        dt = bytes(dt.data('application/json')).decode('utf-8')
+        dt = json.loads(dt)
+        old_subgroup_iid = dt['iid_group']
+        student_iid = dt['iid_student']
+        with data.connect() as cursor:
+            if old_subgroup_iid >= 0:
+                cursor.execute('''
+                    delete from subgroups_students
+                        where iid_subgroup = %s and iid_student = %s ;
+                ''', (old_subgroup_iid, student_iid,))
+            if new_subgroup_iid >= 0:
+                cursor.execute('''
+                    insert into subgroups_students (
+                            iid_subgroup, iid_student
+                        ) values ( %s, %s ) ;
+                ''', (new_subgroup_iid, student_iid,))
+        self.reload()
+        return True
+
     @helpers.resetting_model
     def reload_nogroups(self):
         self.__subgroups = []
@@ -260,11 +336,13 @@ class View(QTableView):
         super().__init__(parent)
 
         self.__model = mdl = Model(parent=self)
+        self.__model.modelReset.connect(self.setup)
         self.setModel(mdl)
-        self.setup()
+#        self.setup()
 
+    @Slot()
     def setup(self):
-        self.__dragStartPos = None
+        # self.__dragStartPos = None
         self.setWordWrap(False)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
@@ -284,64 +362,9 @@ class View(QTableView):
     @Slot(int)
     def setSClassId(self, iid):
         self.__model.setSClassId(iid)
-        self.setup()
+#        self.setup()
 
     @Slot(list, list)
     def on_subgroups_selected(self, sg_iids, sbj_iids):
         self.__model.select_subgroups(sg_iids, sbj_iids)
-        self.setup()
-
-    def mousePressEvent(self, event):
-        if event.buttons() & Qt.LeftButton:
-            self.__dragStartPos = None
-            idx = self.indexAt(event.pos())
-            if idx.isValid():
-                obj, group_no, student_no = self.__model.find_obj(idx.row())
-                if group_no >= 0 and student_no >= 0:
-                    self.__dragStartPos = event.pos()
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self.__dragStartPos is None:
-            return super().mouseMoveEvent(event)
-        if not (event.buttons() & Qt.LeftButton):
-            return super().mouseMoveEvent(event)
-        dist = (event.pos() - self.__dragStartPos).manhattanLength()
-        if dist < QApplication.startDragDistance(): return
-
-        idx = self.indexAt(self.__dragStartPos)
-        group_id = idx.data(Qt.UserRole + 1)
-        student_id = idx.data(Qt.UserRole + 2)
-        data = {
-            'iid_group': idx.data(Qt.UserRole + 1),
-            'iid_student': idx.data(Qt.UserRole + 2),
-        }
-        data = json.dumps(data).encode('utf-8')
-
-        mimedata = QMimeData()
-        mimedata.setData('application/json', data)
-
-        drag = QDrag(self)
-        drag.setMimeData(mimedata)
-        drop_action = drag.exec(Qt.MoveAction)
-        super().mouseMoveEvent(event)
-
-    def dragEnterEvent(self, event):
-        if not event.mimeData().hasFormat('application/json'):
-            return
-        idx = self.indexAt(event.pos())
-        if not idx.isValid():
-            return
-        if idx.data(Qt.UserRole + 2) is not None:
-            return
-        data = event.mimeData().data('application/json')
-        data = json.loads(bytes(data).decode('utf-8'))
-        if idx.data(Qt.UserRole + 1) == data['iid_group']:
-            return
-        event.acceptProposedAction()
-
-    def dragMoveEvent(self, event):
-        print(self.dragDropMode())
-
-    def dropEvent(self, event):
-        print('Drop')
+#        self.setup()
