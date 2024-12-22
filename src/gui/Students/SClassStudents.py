@@ -37,6 +37,25 @@ select  sg.iid_subgroup,
     order by last_name, first_name, middle_name ;
 '''
 
+STUDENT_OTHER_SELECT_SQL = '''
+with grpst as (
+       select  sg.iid_student as iid
+        from  subgroups_students as sg
+        where sg.iid_subgroup in ( {} )
+)
+select
+        st.iid as iid,
+        st.last_name as last_name,
+        st.first_name as first_name,
+        st.middle_name as middle_name, 
+        st.phone as phone,
+        st.phone_parents as phone_parents,
+        st.note as note
+    from students as st
+    where iid_sclass = %s and st.iid not in ( select iid from grpst )
+    order by last_name, first_name, middle_name ;
+'''
+
 
 class Model(QAbstractTableModel):
     
@@ -147,6 +166,11 @@ class Model(QAbstractTableModel):
             SQL = SUBGROUPS_SELECT_SQL.format(iid_txt)
             cursor.execute(SQL)
             self.__subgroups = list(cursor)
+            self.__subgroups.append({
+                'iid': -1,
+                'title': self.tr('<not included in any subgroup>'),
+                'note': None,
+            })
             sgrp = {}
             for sg in self.__subgroups:
                 sgrp[sg['iid']] = sg
@@ -157,6 +181,10 @@ class Model(QAbstractTableModel):
                 iid_subgroup = student.pop('iid_subgroup')
                 student = data.Student(**student)
                 sgrp[iid_subgroup]['students'].append(student)
+            SQL = STUDENT_OTHER_SELECT_SQL.format(iid_txt)
+            cursor.execute(SQL, (self.__iid_sclass,))
+            sgrp[-1]['students'] = [ data.Student(**x) for x in cursor ]
+
 
     def reload(self):
         if self.__iids_subgroup:
