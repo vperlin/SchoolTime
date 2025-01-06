@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QTableView, QHeaderView
-from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex, QMimeData
 from PySide6.QtGui import QColor
 import re
+import json
 
 import data
 import helpers
@@ -246,6 +247,50 @@ class Model(QAbstractTableModel):
         else:
             self.reload_nogroups()
 
+    def flags(self, idx):
+        result = super().flags(idx)
+        if self.sg_shown:
+            obj, _, _ = self.find_obj(idx.row())
+            if isinstance(obj, data.Student):
+                result |= Qt.ItemIsDragEnabled
+            else:
+                result |= Qt.ItemIsDropEnabled
+        return result
+
+    def supportedDropActions(self):
+        return Qt.MoveAction
+
+    def mimeTypes(self):
+        return [ 'application/json' ]
+
+    def mimeData(self, indexes):
+        for idx in indexes:
+            _, sg_no, st_no = self.find_obj(idx.row())
+            dt = {
+                'iid_subgroup': self.__subgroups[sg_no]['iid'],
+                'iid_student': self.__subgroups[sg_no]['students'][st_no].iid
+            }
+            dt = json.dumps(dt).encode('utf-8')
+
+            result = QMimeData()
+            result.setData('application/json', dt)
+            return result
+
+    def canDropMimeData(self, dt, action, row, column, parent_idx):
+        if not parent_idx.isValid():
+            return False
+        if not dt.hasFormat('application/json'):
+            return False
+        obj, _, _ = self.find_obj(parent_idx.row())
+        if isinstance(obj, data.Student):
+            return False
+        dt = bytes(dt.data('application/json')).decode('utf-8')
+        dt = json.loads(dt)
+        return dt['iid_subgroup'] != obj['iid']
+
+    def dropMimeData(self, dt, action, row, column, parent_idx):
+        return False
+
 
 class View(QTableView):
 
@@ -273,6 +318,10 @@ class View(QTableView):
 
         self.setSelectionBehavior(QTableView.SelectRows)
         self.setSelectionMode(QTableView.SingleSelection)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QTableView.InternalMove)
 
     @Slot(int)
     def setSClassId(self, iid):
