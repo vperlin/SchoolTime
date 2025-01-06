@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import QTableView, QHeaderView
 from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex
+from PySide6.QtGui import QColor
 import re
 
 import data
@@ -67,7 +68,11 @@ class Model(QAbstractTableModel):
         self.__iids_subject = []
         self.__students = []
         self.__subgroups = []
-        
+
+    @property
+    def sg_shown(self) -> bool:
+        return bool(self.__iids_subgroup)
+
     @Slot(list, list)
     def select_subgroups(self, sg_iids, sbj_iids):
         self.__iids_subgroup = list(sg_iids)
@@ -147,22 +152,22 @@ class Model(QAbstractTableModel):
         if role == Qt.DisplayRole:
             if isinstance(obj, data.Student):
                 match idx.column():
-                    case 0:
-                        return obj.full_name
-                    case 1:
-                        return obj.phone
-                    case 2:
-                        return obj.phone_parents
-                    case 3:
-                        return obj.note
-                    case _:
-                        return None
+                    case 0: return obj.full_name
+                    case 1: return obj.phone
+                    case 2: return obj.phone_parents
+                    case 3: return obj.note
+                    case _: return None
             else:
                 match idx.column():
-                    case 0:
-                        return obj['title']
-                    case _:
-                        return None
+                    case 0: return obj['title']
+                    case _: return None
+        elif role == Qt.BackgroundRole:
+            if isinstance(obj, data.Student):
+                return None
+            else:
+                if obj['iid'] < 0:
+                    return QColor('#FF8888')
+                return QColor('#FFDEAD')
         else:
             return None
 
@@ -171,6 +176,32 @@ class Model(QAbstractTableModel):
             return self.data_groups(idx, role)
         else:
             return self.data_nogroups(idx, role)
+
+    def headerData(self, section, orientation, role):
+        if role == Qt.BackgroundRole and orientation == Qt.Vertical:
+            obj, _, _ = self.find_obj(section)
+            if not isinstance(obj, data.Student):
+                if obj['iid'] < 0:
+                    return QColor('#FF8888')
+                return QColor('#FFDEAD')
+            return None
+        if role != Qt.DisplayRole:
+            return super().headerData(section, orientation, role)
+        if orientation == Qt.Horizontal:
+            match section:
+                case 0: return self.tr('FIO')
+                case 1: return self.tr('Phone')
+                case 2: return self.tr('Phone of Parents')
+                case 3: return self.tr('Note')
+                case _: None
+        else:
+            if self.sg_shown:
+                obj, _, no = self.find_obj(section)
+                if isinstance(obj, data.Student):
+                    return no + 1
+                return None
+            else:
+                return super().headerData(section, orientation, role)
 
     @helpers.resetting_model
     def reload_nogroups(self):
@@ -239,6 +270,9 @@ class View(QTableView):
             obj, subgroup_no, student_no = self.__model.find_obj(r)
             if subgroup_no >= 0 and student_no < 0:
                 self.setSpan(r, 0, 1, 4)
+
+        self.setSelectionBehavior(QTableView.SelectRows)
+        self.setSelectionMode(QTableView.SingleSelection)
 
     @Slot(int)
     def setSClassId(self, iid):
