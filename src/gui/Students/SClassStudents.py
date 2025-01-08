@@ -289,7 +289,35 @@ class Model(QAbstractTableModel):
         return dt['iid_subgroup'] != obj['iid']
 
     def dropMimeData(self, dt, action, row, column, parent_idx):
-        return False
+
+        if not self.canDropMimeData(dt, action, row, column, parent_idx):
+            return False
+
+        if action == Qt.IgnoreAction:
+            return True
+
+        dt = bytes(dt.data('application/json')).decode('utf-8')
+        dt = json.loads(dt)
+        iid_student = dt['iid_student']
+        iid_subgroup_old = dt['iid_subgroup']
+
+        obj, _, _ = self.find_obj(parent_idx.row())
+        iid_subgroup_new = obj['iid']
+
+        with data.connect() as cursor:
+            if iid_subgroup_old >= 0:
+                cursor.execute('''
+                    delete from subgroups_students
+                       where iid_subgroup = %s and iid_student = %s ;
+                ''', (iid_subgroup_old, iid_student,))
+            if iid_subgroup_new >= 0:
+                cursor.execute('''
+                    insert into subgroups_students (iid_subgroup, iid_student)
+                       values ( %s, %s ) ;
+                ''', (iid_subgroup_new, iid_student,))
+        self.reload()
+
+        return True
 
 
 class View(QTableView):
