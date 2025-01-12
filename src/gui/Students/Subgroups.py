@@ -1,6 +1,11 @@
-from PySide6.QtWidgets import QFrame, QRadioButton, QHBoxLayout
-from PySide6.QtCore import Slot, Signal
+from PySide6.QtWidgets import QFrame, QRadioButton, QHBoxLayout, QInputDialog
+from PySide6.QtGui import QAction
+from PySide6.QtCore import Slot, Signal, Qt
 import data
+
+import logging
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.DEBUG)
 
 
 SELECT_SGROUPS = '''
@@ -15,36 +20,42 @@ SELECT_SGROUPS = '''
 
 
 class SubgroupsFrame(QFrame):
-    
+
     subgroups_selected = Signal(list, list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
+        self.__action_add_subgroup = act = QAction(parent=self)
+        act.setText(self.tr('Add subgroup'))
+        act.triggered.connect(self.on_add_subgroup)
+        self.addAction(act)
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+
         self.__layout = lay = QHBoxLayout(self)
-        
+
         lay.addStretch()
-        
+
         self.__no_subgroups = btn = QRadioButton(self.tr('no subgroups'), self)
         btn.toggled.connect(self.on_nogroup_toggled)
         lay.addWidget(btn)
-        
+
         self.__noname = btn = QRadioButton(self.tr('noname'), self)
         self.__noname_subgroup_ids = []
         self.__noname_subgroup_titles = None
         btn.toggled.connect(self.on_noname_toggled)
         lay.addWidget(btn)
-        
+
         self.__other = []
-       
+
         lay.addStretch()
-        
+
     @Slot(int)
     def setSClassId(self, iid_sclass):
         self.__iid_sclass = iid_sclass
         self.__no_subgroups.setChecked(True)
         self.reload()
-        
+
     def reload(self):
         self.__noname_subgroup_ids = []
         self.__noname_subgroup_titles = None
@@ -68,13 +79,15 @@ class SubgroupsFrame(QFrame):
     @Slot(bool)
     def on_nogroup_toggled(self, checked):
         if checked:
+            self.__action_add_subgroup.setEnabled(False)
             self.subgroups_selected.emit(None, None)
-            
+
     @Slot(bool)
     def on_noname_toggled(self, checked):
         if checked:
             self.subgroups_selected.emit(self.__noname_subgroup_ids, None)
-            
+            self.__action_add_subgroup.setEnabled(True)
+
     @Slot(bool)
     def on_sbj_toggled(self, checked):
         if not checked: return
@@ -84,3 +97,35 @@ class SubgroupsFrame(QFrame):
         sg_iids = x['iids_subgroup']
         sbj_iids = x['iids_subject']
         self.subgroups_selected.emit(sg_iids, sbj_iids)
+        self.__action_add_subgroup.setEnabled(True)
+
+    def add_noname_subgroup(self):
+        title, ok = QInputDialog.getText(self, self.tr('Subgroup title'), self.tr('Subgroup'))
+        title = title.strip()
+        if not (title and ok):
+            return
+        with data.connect() as cursor:
+            cursor.execute('''
+                insert into subgroups( title, iid_sclass )
+                    values( %s, %s )
+                    returning iid ;
+            ''', (title, self.__iid_sclass,))
+            iid = cursor.fetchone()['iid']
+            self.__noname_subgroup_ids.append(iid)
+            self.__noname_subgroup_titles += ',' + title
+        self.subgroups_selected.emit(self.__noname_subgroup_ids, None)
+
+    def add_sbj_subgroup(self, grp):
+        title, ok = QInputDialog.getText(self, self.tr('Subgroup title'), self.tr('Subgroup'))
+        LOG.debug(grp)
+
+    @Slot()
+    def on_add_subgroup(self):
+        LOG.debug('on_add_subgroup()')
+        if self.__noname.isChecked():
+            self.add_noname_subgroup()
+            return
+        for x in self.__other:
+            if x['button'].isChecked():
+                self.add_sbj_subgroup(x)
+                return
