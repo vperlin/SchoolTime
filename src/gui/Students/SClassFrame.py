@@ -17,10 +17,16 @@ class SClassFrame(QFrame):
         lay.addWidget(sub)
 
         self.__students = vie = SClassStudents.View(parent=self)
+        for act in sub.actions_list:
+            vie.addAction(act)
         # vie.setStyleSheet('background: blue')
         lay.addWidget(vie)
 
         sub.subgroups_selected.connect(vie.on_subgroups_selected)
+
+    @property
+    def actions_list(self):
+        return self.__subgroups.actions_list
 
     @Slot(int)
     def setSClassId(self, iid_sclass):

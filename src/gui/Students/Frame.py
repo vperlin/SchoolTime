@@ -23,6 +23,12 @@ class Frame(QFrame):
         self.__sclasses.iid_sclass_selected.connect(self.__sclass_frame.setSClassId)
         self.__sclass_frame.setSClassId(self.__sclasses.currentData())
 
+        self.__menu.addActions(self.actions_list)
+
+    @property
+    def actions_list(self):
+        return self.__sclass_frame.actions_list
+
     @property
     def menus(self):
         return [self.__menu]

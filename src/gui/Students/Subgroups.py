@@ -50,6 +50,10 @@ class SubgroupsFrame(QFrame):
 
         lay.addStretch()
 
+    @property
+    def actions_list(self):
+        return [ self.__action_add_subgroup ]
+
     @Slot(int)
     def setSClassId(self, iid_sclass):
         self.__iid_sclass = iid_sclass

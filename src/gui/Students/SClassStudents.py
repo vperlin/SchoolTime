@@ -332,6 +332,7 @@ class View(QTableView):
     @Slot()
     def setup(self):
         self.setWordWrap(False)
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
         if hdr := self.horizontalHeader():
             hdr.setSectionResizeMode(QHeaderView.ResizeToContents)
             hdr.setSectionResizeMode(0, QHeaderView.Stretch)
