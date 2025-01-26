@@ -1,6 +1,10 @@
-from PySide6.QtWidgets import QFrame, QRadioButton, QHBoxLayout
-from PySide6.QtCore import Slot, Signal
+from PySide6.QtWidgets import QFrame, QRadioButton, QHBoxLayout, QInputDialog
+from PySide6.QtCore import Slot, Signal, Qt
 import data
+
+import logging
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.DEBUG)
 
 
 SELECT_SGROUPS = '''
@@ -20,6 +24,12 @@ class SubgroupsFrame(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+
+        self.__action_add_subgroup = act = self.addAction(self.tr('Add subgroup'))
+        act.triggered.connect(self.on_add_subgroup)
+        act.setEnabled(False)
         
         self.__layout = lay = QHBoxLayout(self)
         
@@ -68,19 +78,63 @@ class SubgroupsFrame(QFrame):
     @Slot(bool)
     def on_nogroup_toggled(self, checked):
         if checked:
+            self.__action_add_subgroup.setEnabled(False)
             self.subgroups_selected.emit(None, None)
             
     @Slot(bool)
     def on_noname_toggled(self, checked):
         if checked:
+            self.__action_add_subgroup.setEnabled(True)
             self.subgroups_selected.emit(self.__noname_subgroup_ids, None)
-            
+
     @Slot(bool)
     def on_sbj_toggled(self, checked):
         if not checked: return
+        self.__action_add_subgroup.setEnabled(True)
         btn = self.sender()
         number = btn.property('number')
         x = self.__other[number]
         sg_iids = x['iids_subgroup']
         sbj_iids = x['iids_subject']
         self.subgroups_selected.emit(sg_iids, sbj_iids)
+
+    def add_noname_subgroup(self):
+        name, ok = QInputDialog.getText(self,
+                                        self.tr('Add subgroup'),
+                                        self.tr('Subgroup name'))
+        if not ok: return
+        with data.connect() as cursor:
+            cursor.execute('''
+                insert into subgroups ( title, iid_sclass )
+                    values ( %s, %s )
+                    returning iid ;
+            ''', (name, self.__iid_sclass))
+            iid = cursor.fetchone()['iid']
+        self.__noname_subgroup_ids.insert(0, iid)
+        if self.__noname_subgroup_titles is None:
+            self.__noname_subgroup_titles = name
+        else:
+            self.__noname_subgroup_titles = name + ', ' + self.__noname_subgroup_titles
+        self.subgroups_selected.emit(self.__noname_subgroup_ids, None)
+
+    def add_sbj_subgroup(self):
+        LOG.debug('add_sbj_subgroup()')
+
+    @Slot()
+    def on_add_subgroup(self):
+        if self.__noname.isChecked():
+            return self.add_noname_subgroup()
+        else:
+            return self.add_sbj_subgroup()
+
+
+
+
+
+
+
+
+
+
+
+
