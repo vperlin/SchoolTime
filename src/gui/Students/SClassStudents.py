@@ -7,6 +7,10 @@ import json
 import data
 import helpers
 
+import logging
+LOG = logging.getLogger(__name__)
+LOG.setLevel(logging.DEBUG)
+
 
 STUDENTS_SELECT_SQL = '''
     select iid, last_name, first_name, middle_name, 
@@ -73,6 +77,10 @@ class Model(QAbstractTableModel):
     @property
     def sg_shown(self) -> bool:
         return bool(self.__iids_subgroup)
+    
+    @property
+    def sbj_shown(self) -> bool:
+        return bool(self.__iids_subject)
 
     @Slot(list, list)
     def select_subgroups(self, sg_iids, sbj_iids):
@@ -325,6 +333,12 @@ class View(QTableView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
+        self.setContextMenuPolicy(Qt.ActionsContextMenu)
+
+        self.__action_set_subject = act = self.addAction(self.tr('Set subject'))
+        act.triggered.connect(self.on_set_subject)
+        act.setEnabled(False)
+
         self.__model = mdl = Model(parent=self)
         self.setModel(mdl)
         self.__model.modelReset.connect(self.setup)
@@ -357,4 +371,30 @@ class View(QTableView):
 
     @Slot(list, list)
     def on_subgroups_selected(self, sg_iids, sbj_iids):
-        self.__model.select_subgroups(sg_iids, sbj_iids)        
+        self.__model.select_subgroups(sg_iids, sbj_iids)
+
+    def selectionChanged(self, selected, deselected):
+        super().selectionChanged(selected, deselected)
+        if self.__model.sbj_shown or not self.__model.sg_shown:
+            self.__action_set_subject.setEnabled(False)
+            return
+        if not selected.indexes():
+            self.__action_set_subject.setEnabled(False)
+            return
+
+        row = selected.indexes()[0].row()
+        obj, _, _ = self.__model.find_obj(row)
+        if isinstance(obj, data.Student):
+            self.__action_set_subject.setEnabled(False)
+        else:
+            self.__action_set_subject.setEnabled(True)
+
+    @Slot()
+    def on_set_subject(self):
+        LOG.debug('on_set_subject()')
+
+
+
+
+
+
