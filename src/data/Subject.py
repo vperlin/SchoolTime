@@ -22,9 +22,10 @@ class Subject(object):
     code: str = None
     title: str = None
     note: str = None
-    
+
     is_changed: bool = False
-    
+    is_selected: bool = False
+
     @property
     def is_new(self):
         return self.iid is None

@@ -54,7 +54,7 @@ class SubgroupsFrame(QFrame):
         self.__iid_sclass = iid_sclass
         self.__no_subgroups.setChecked(True)
         self.reload()
-        
+
     def reload(self):
         self.__noname_subgroup_ids = []
         self.__noname_subgroup_titles = None

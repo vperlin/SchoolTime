@@ -19,10 +19,14 @@ class SClassFrame(QFrame):
         lay.addWidget(vie)
 
         sub.subgroups_selected.connect(vie.on_subgroups_selected)
+        vie.subgroup_changed.connect(self.on_subgroup_changed)
         
     @Slot(int)
     def setSClassId(self, iid_sclass):
         self.__subgroups.setSClassId(iid_sclass)
         self.__students.setSClassId(iid_sclass)
         
-        
+    @Slot()
+    def on_subgroup_changed(self):
+        self.__subgroups.reload()
+    

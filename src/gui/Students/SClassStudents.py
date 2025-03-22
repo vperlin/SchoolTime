@@ -1,11 +1,13 @@
 from PySide6.QtWidgets import QTableView, QHeaderView
 from PySide6.QtCore import QAbstractTableModel, Qt, Slot, QModelIndex, QMimeData
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QColor
 import re
 import json
 
 import data
 import helpers
+from .. import Subjects
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -62,12 +64,17 @@ select
     order by last_name, first_name, middle_name ;
 '''
 
+ASSIGN_SUBJECT_SQL = '''
+    insert into subgroups_subjects( iid_subgroup, iid_subject)
+        values( %s, %s ) ;
+'''
+
 
 class Model(QAbstractTableModel):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         self.__iid_sclass = None
         self.__iids_subgroup = []
         self.__iids_subject = []
@@ -77,7 +84,7 @@ class Model(QAbstractTableModel):
     @property
     def sg_shown(self) -> bool:
         return bool(self.__iids_subgroup)
-    
+
     @property
     def sbj_shown(self) -> bool:
         return bool(self.__iids_subject)
@@ -87,6 +94,9 @@ class Model(QAbstractTableModel):
         self.__iids_subgroup = list(sg_iids)
         self.__iids_subject = list(sbj_iids)
         self.reload()
+
+    def remove_subgroup(self, iid_subgroup):
+        self.__iids_subgroup.remove(iid_subgroup)
 
     @Slot()
     def setSClassId(self, iid_sclass):
@@ -330,6 +340,8 @@ class Model(QAbstractTableModel):
 
 class View(QTableView):
 
+    subgroup_changed = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -391,10 +403,15 @@ class View(QTableView):
 
     @Slot()
     def on_set_subject(self):
-        LOG.debug('on_set_subject()')
-
-
-
-
-
+        dia = Subjects.Dialog(parent=self)
+        if dia.exec():
+            row = self.selectedIndexes()[0].row()
+            obj, _, _ = self.__model.find_obj(row)
+            sg_iid = obj['iid']
+            with data.connect() as cursor:
+                for sbj_iid in dia.selected_iids:
+                    cursor.execute(ASSIGN_SUBJECT_SQL, (sg_iid, sbj_iid,))
+            self.subgroup_changed.emit()
+            self.__model.remove_subgroup(sg_iid)
+            self.__model.reload()
 
