@@ -57,4 +57,6 @@ class View(QComboBox):
         iid_sclass = self.itemData(idx)
         self.iid_sclass_selected.emit(iid_sclass)
         
+    def reload(self):
+        self.__model.reload()
         

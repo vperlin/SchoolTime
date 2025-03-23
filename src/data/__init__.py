@@ -4,3 +4,4 @@ from .Teacher import Teacher
 from .Kind import Kind
 from .SClass import SClass
 from .Student import Student
+from .Subgroup import Subgroup
