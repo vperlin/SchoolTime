@@ -25,3 +25,4 @@ class Frame(QFrame):
     @property
     def menus(self):
         return [self.__menu]
+        
